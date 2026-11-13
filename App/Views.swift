@@ -16,22 +16,21 @@ struct PillView: View {
             .padding(.horizontal, model.attached ? 22 : 14)
             .padding(.top, model.notchInset + (model.expanded ? 12 : 0))
             .padding(.bottom, model.expanded ? 12 : 0)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            .transition(.opacity)
+            .id(model.expanded) // cross-fade compact ↔ expanded content
+            .frame(width: size.width, height: size.height, alignment: .top)
             .background(shape.fill(.black))
             .clipShape(shape)
             .foregroundStyle(.white)
+            .contentShape(shape)
+            .onTapGesture { model.expanded.toggle() }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top) // fixed transparent canvas
         }
-        .contentShape(shape)
-        .onHover { inside in
-            if inside { model.expanded = true; return }
-            // Collapse only if the cursor really left (hover exits also fire while the window resizes).
-            Task { @MainActor in
-                try? await Task.sleep(for: .milliseconds(250))
-                if !model.mouseInPanel() { model.expanded = false }
-            }
-        }
-        .onTapGesture { model.expanded.toggle() }
+        .animation(reduceMotion ? nil : .spring(duration: 0.35, bounce: 0.2), value: model.expanded)
+        .animation(reduceMotion ? nil : .spring(duration: 0.3), value: model.compactSize)
     }
+
+    private var size: CGSize { model.expanded ? model.expandedSize : model.compactSize }
 
     private var shape: NotchShape {
         if model.attached { return NotchShape(flare: 6, topRadius: 0, bottomRadius: model.expanded ? 24 : 12) }

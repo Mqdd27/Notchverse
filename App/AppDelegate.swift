@@ -11,7 +11,6 @@ import SwiftUI
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         panel = NSPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
-        model.mouseInPanel = { [unowned self] in panel.isVisible && NSMouseInRect(NSEvent.mouseLocation, panel.frame, false) }
         panel.isFloatingPanel = true
         panel.level = .statusBar
         panel.backgroundColor = .clear
@@ -34,6 +33,14 @@ import SwiftUI
             MainActor.assumeIsolated { self?.layout() }
         }
         observe()
+        // The panel is a fixed, mostly transparent canvas; only the black shape takes the mouse.
+        NSEvent.addGlobalMonitorForEvents(matching: [.mouseMoved, .leftMouseDragged]) { [weak self] _ in
+            MainActor.assumeIsolated { self?.trackMouse() }
+        }
+        NSEvent.addLocalMonitorForEvents(matching: [.mouseMoved, .leftMouseDragged]) { [weak self] e in
+            MainActor.assumeIsolated { self?.trackMouse() }
+            return e
+        }
         // `kill` / logout: quit normally so the adapter process is stopped too.
         signal(SIGTERM, SIG_IGN)
         sigterm = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .main)
@@ -48,6 +55,30 @@ import SwiftUI
     private func observe() {
         withObservationTracking { layout() } onChange: { [weak self] in
             DispatchQueue.main.async { MainActor.assumeIsolated { self?.observe() } }
+        }
+    }
+
+    /// Screen rect of the black shape as it is now (compact or expanded).
+    private var shapeRect: NSRect {
+        let s = model.expanded ? model.expandedSize : model.compactSize
+        let f = panel.frame
+        return NSRect(x: f.midX - s.width / 2, y: f.maxY - s.height, width: s.width, height: s.height)
+    }
+
+    private func mouseOnShape() -> Bool { panel.isVisible && NSMouseInRect(NSEvent.mouseLocation, shapeRect, false) }
+
+    /// Hover to open; collapse once the cursor has been off the shape for 0.25 s.
+    /// Outside the shape the panel ignores the mouse, so clicks reach the windows below.
+    private func trackMouse() {
+        let inside = mouseOnShape()
+        if panel.ignoresMouseEvents == inside { panel.ignoresMouseEvents = !inside }
+        if inside {
+            if !model.expanded { model.expanded = true }
+        } else if model.expanded {
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(250))
+                if !self.mouseOnShape() { self.model.expanded = false }
+            }
         }
     }
 
@@ -70,16 +101,18 @@ import SwiftUI
 
         let compactHeight: CGFloat = !attached ? 38 : realNotch > 0 ? 28 : 32
         let compactWidth = max(notchWidth + 100, model.compactKind == .music ? 360 : 300)
-        let size = model.expanded ? NSSize(width: 460, height: 320) : NSSize(width: compactWidth, height: compactHeight)
+        let compact = CGSize(width: compactWidth, height: compactHeight + inset)
+        let expanded = CGSize(width: 460, height: 320 + inset)
+        if model.compactSize != compact { model.compactSize = compact }
+        if model.expandedSize != expanded { model.expandedSize = expanded }
+        // Fixed canvas big enough for both states; SwiftUI animates the shape inside it.
+        let size = CGSize(width: max(compact.width, expanded.width) + 40, height: expanded.height + 20)
         let top = attached ? screen.frame.maxY : screen.visibleFrame.maxY - 8
-        let frame = NSRect(x: screen.frame.midX - size.width / 2, y: top - size.height - inset,
-                           width: size.width, height: size.height + inset)
+        let frame = NSRect(x: screen.frame.midX - size.width / 2, y: top - size.height, width: size.width, height: size.height)
 
         let behavior: NSWindow.CollectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
         panel.collectionBehavior = model.hideInFullscreen ? behavior : behavior.union(.fullScreenAuxiliary)
-        // Resize instantly: an animated window frame runs behind the SwiftUI content (big empty box)
-        // and fires spurious hover exits mid-resize.
-        panel.setFrame(frame, display: true)
+        if panel.frame != frame { panel.setFrame(frame, display: true) }
         panel.orderFrontRegardless()
     }
 
