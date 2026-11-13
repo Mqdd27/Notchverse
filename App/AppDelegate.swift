@@ -7,6 +7,7 @@ import SwiftUI
     private var panel: NSPanel!
     private var statusItem: NSStatusItem!
     private var settingsWindow: NSWindow?
+    private var sigterm: DispatchSourceSignal?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         panel = NSPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
@@ -32,6 +33,11 @@ import SwiftUI
             MainActor.assumeIsolated { self?.layout() }
         }
         observe()
+        // `kill` / logout: quit normally so the adapter process is stopped too.
+        signal(SIGTERM, SIG_IGN)
+        sigterm = DispatchSource.makeSignalSource(signal: SIGTERM, queue: .main)
+        sigterm?.setEventHandler { NSApp.terminate(nil) }
+        sigterm?.resume()
         Task { await model.start() }
     }
 

@@ -207,26 +207,6 @@ func findBinary(_ name: String) -> String? {
     }
 }
 
-// MARK: ISS (wheretheiss.at), polled only while its page is open
-
-@MainActor @Observable final class ISSService {
-    struct Position: Decodable, Equatable {
-        let latitude, longitude, altitude, velocity: Double
-        let visibility: String
-    }
-
-    var position: Position?
-    var trail: [Position] = []
-
-    func refresh() async {
-        guard let url = URL(string: "https://api.wheretheiss.at/v1/satellites/25544"),
-              let (data, _) = try? await URLSession.shared.data(from: url),
-              let p = try? JSONDecoder().decode(Position.self, from: data) else { return }
-        position = p
-        trail = Array((trail + [p]).suffix(120))
-    }
-}
-
 // MARK: Timer
 
 @MainActor @Observable final class TimerModel {

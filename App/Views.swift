@@ -7,8 +7,8 @@ struct PillView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        // 30 Hz only while music plays, otherwise 1 Hz for clocks and countdowns.
-        TimelineView(.animation(minimumInterval: model.state?.isPlaying == true ? 1.0 / 30 : 1)) { ctx in
+        // Redraw once a second plus exactly when a lyric line starts, instead of 30 Hz.
+        TimelineView(LineSchedule(lineDates: lineDates)) { ctx in
             let pos = model.clock?.position(at: ctx.date) ?? 0
             Group {
                 if model.expanded { expanded(pos, now: ctx.date) } else { compact(pos, now: ctx.date) }
@@ -30,6 +30,12 @@ struct PillView: View {
         let r: CGFloat = model.expanded ? 22 : 19
         let top: CGFloat = model.notchInset > 0 ? 0 : r // flush with the screen edge in notch mode
         return UnevenRoundedRectangle(topLeadingRadius: top, bottomLeadingRadius: r, bottomTrailingRadius: r, topTrailingRadius: top)
+    }
+
+    /// Wall-clock dates at which each lyric line starts, while playing.
+    private var lineDates: [Date] {
+        guard model.showLyrics, let s = model.state, s.isPlaying, let lines = syncedLines else { return [] }
+        return lines.map { s.timestamp.addingTimeInterval(($0.time - s.elapsedAtTimestamp - model.userOffset) / s.rate) }
     }
 
     private var syncedLines: [LyricLine]? {
@@ -59,10 +65,14 @@ struct PillView: View {
             compactRow("terminal", n == 1 ? "1 agent working" : "\(n) agents working", tint: .green)
         case .idle:
             let p = model.location.place
-            let next = nextPrayer(lat: p.lat, lng: p.lng, tz: p.timeZone, now: now)
             HStack(spacing: 8) {
-                Image(systemName: next.0.icon)
-                Text("\(next.0.rawValue) \(PrayerPage.time(next.1, p.timeZone))").font(.system(size: 13, weight: .semibold))
+                if model.prayerInstalled {
+                    let next = nextPrayer(lat: p.lat, lng: p.lng, tz: p.timeZone, now: now)
+                    Image(systemName: next.0.icon)
+                    Text("\(next.0.rawValue) \(PrayerPage.time(next.1, p.timeZone))").font(.system(size: 13, weight: .semibold))
+                } else {
+                    Text(PrayerPage.time(now, .current)).font(.system(size: 13, weight: .semibold)).monospacedDigit()
+                }
                 Spacer()
                 if let w = model.weather.now {
                     Image(systemName: w.symbol).symbolRenderingMode(.multicolor)
@@ -97,7 +107,6 @@ struct PillView: View {
                 .transition(.opacity)
             Image(systemName: "waveform")
                 .font(.system(size: 13))
-                .symbolEffect(.variableColor.iterative, isActive: model.state?.isPlaying == true && !reduceMotion)
                 .opacity(model.state?.isPlaying == true ? 1 : 0.4)
                 .accessibilityLabel(model.state?.isPlaying == true ? "Playing" : "Paused")
         }
@@ -110,29 +119,28 @@ struct PillView: View {
     private func expanded(_ pos: TimeInterval, now: Date) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 4) {
-                ForEach(Page.allCases, id: \.self) { p in
+                ForEach(model.pages, id: \.self) { p in
                     Button { model.page = p } label: {
                         Image(systemName: p.icon)
                             .font(.system(size: 12))
                             .frame(width: 30, height: 22)
-                            .background(Capsule().fill(.white.opacity(p == model.page ? 0.2 : 0)))
+                            .background(Capsule().fill(.white.opacity(p == model.visiblePage ? 0.2 : 0)))
                             .contentShape(Capsule())
                     }
                     .buttonStyle(.plain)
-                    .opacity(p == model.page ? 1 : 0.55)
+                    .opacity(p == model.visiblePage ? 1 : 0.55)
                     .accessibilityLabel(p.label)
                 }
                 Spacer()
-                Text(model.page.label).font(.system(size: 11, weight: .semibold)).foregroundStyle(.white.opacity(0.5))
+                Text(model.visiblePage.label).font(.system(size: 11, weight: .semibold)).foregroundStyle(.white.opacity(0.5))
             }
             Group {
-                switch model.page {
+                switch model.visiblePage {
                 case .music: musicPage(pos)
                 case .agents: AgentsPage(agents: model.agents)
                 case .weather: WeatherPage(weather: model.weather, place: model.location.place, now: now)
                 case .prayer: PrayerPage(place: model.location.place, now: now)
                 case .timer: TimerPage(timer: model.timer, now: now)
-                case .iss: ISSPage(iss: model.iss)
                 case .containers: ContainersPage(containers: model.containers)
                 }
             }
@@ -318,11 +326,32 @@ struct SettingsView: View {
                     Button(p.name) { model.location.choose(p) }
                 }
             }
-            Text("Lyrics: lrclib.net (title, artist, album, duration). Weather: Open-Meteo (rounded coordinates). ISS: wheretheiss.at.")
+            Text("Lyrics: lrclib.net (title, artist, album, duration). Weather: Open-Meteo (rounded coordinates).")
                 .font(.caption).foregroundStyle(.secondary)
         }
         .formStyle(.grouped)
         .frame(width: 440)
         .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+/// 1 Hz ticks merged with lyric line start dates (sorted).
+struct LineSchedule: TimelineSchedule {
+    let lineDates: [Date]
+
+    func entries(from start: Date, mode: TimelineScheduleMode) -> AnyIterator<Date> {
+        var next = start
+        var i = lineDates.firstIndex { $0 > start } ?? lineDates.count
+        return AnyIterator {
+            let current = next
+            let tick = current.addingTimeInterval(1)
+            if i < lineDates.count, lineDates[i] <= tick {
+                next = lineDates[i]
+                i += 1
+            } else {
+                next = tick
+            }
+            return current
+        }
     }
 }

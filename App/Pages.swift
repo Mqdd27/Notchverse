@@ -179,61 +179,6 @@ struct TimerPage: View {
     }
 }
 
-// MARK: ISS
-
-struct ISSPage: View {
-    let iss: ISSService
-
-    var body: some View {
-        VStack(spacing: 8) {
-            GeometryReader { geo in
-                let w = geo.size.width, h = geo.size.height
-                let point = { (p: ISSService.Position) in CGPoint(x: (p.longitude + 180) / 360 * w, y: (90 - p.latitude) / 180 * h) }
-                ZStack {
-                    RoundedRectangle(cornerRadius: 10).fill(.white.opacity(0.06))
-                    Path { path in // 30° graticule
-                        for i in 1..<12 { let x = w * CGFloat(i) / 12; path.move(to: .init(x: x, y: 0)); path.addLine(to: .init(x: x, y: h)) }
-                        for i in 1..<6 { let y = h * CGFloat(i) / 6; path.move(to: .init(x: 0, y: y)); path.addLine(to: .init(x: w, y: y)) }
-                    }
-                    .stroke(.white.opacity(0.08), lineWidth: 0.5)
-                    Path { path in // trail, split where it wraps around the antimeridian
-                        var last: CGPoint?
-                        for p in iss.trail.map(point) {
-                            if let l = last, abs(l.x - p.x) < w / 2 { path.addLine(to: p) } else { path.move(to: p) }
-                            last = p
-                        }
-                    }
-                    .stroke(.orange.opacity(0.6), lineWidth: 1.5)
-                    if let p = iss.position {
-                        Circle().fill(.orange).frame(width: 10, height: 10).shadow(color: .orange, radius: 6).position(point(p))
-                    }
-                }
-            }
-            .frame(height: 150)
-            if let p = iss.position {
-                HStack {
-                    stat("Lat", String(format: "%.2f°", p.latitude))
-                    stat("Lon", String(format: "%.2f°", p.longitude))
-                    stat("Altitude", "\(Int(p.altitude)) km")
-                    stat("Speed", "\(Int(p.velocity).formatted()) km/h")
-                    stat("Sky", p.visibility == "daylight" ? "Daylight" : "Eclipsed")
-                }
-            } else {
-                Note(text: "Locating the ISS…")
-            }
-        }
-    }
-
-    private func stat(_ label: String, _ value: String) -> some View {
-        VStack(spacing: 2) {
-            Text(label).font(.system(size: 10)).foregroundStyle(secondary)
-            Text(value).font(.system(size: 12, weight: .semibold)).monospacedDigit()
-        }
-        .frame(maxWidth: .infinity)
-        .accessibilityElement(children: .combine)
-    }
-}
-
 // MARK: Containers
 
 struct ContainersPage: View {

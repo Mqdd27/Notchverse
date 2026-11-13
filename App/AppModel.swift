@@ -4,7 +4,7 @@ import Observation
 import ServiceManagement
 
 enum Page: String, CaseIterable {
-    case music, agents, weather, prayer, timer, iss, containers
+    case music, agents, weather, prayer, timer, containers
 
     var icon: String {
         switch self {
@@ -13,17 +13,11 @@ enum Page: String, CaseIterable {
         case .weather: "cloud.sun"
         case .prayer: "sun.horizon"
         case .timer: "timer"
-        case .iss: "globe.asia.australia"
         case .containers: "shippingbox"
         }
     }
 
-    var label: String {
-        switch self {
-        case .iss: "ISS"
-        default: rawValue.capitalized
-        }
-    }
+    var label: String { rawValue.capitalized }
 }
 
 /// What the closed pill shows, highest priority first.
@@ -37,7 +31,11 @@ enum CompactKind: Equatable {
     var state: NowPlayingState?
     var lyrics: Lyrics? // nil = still searching
     var expanded = false {
-        didSet { if expanded, !oldValue { Task { await refreshVisiblePage() } } }
+        didSet {
+            guard expanded, !oldValue else { return }
+            prayerInstalled = Self.isPrayerAppInstalled()
+            Task { await refreshVisiblePage() }
+        }
     }
     var showLyrics = UserDefaults.standard.object(forKey: "showLyrics") as? Bool ?? true {
         didSet { UserDefaults.standard.set(showLyrics, forKey: "showLyrics") }
@@ -57,9 +55,17 @@ enum CompactKind: Equatable {
     let agents = AgentsService()
     let location = LocationStore()
     let weather = WeatherService()
-    let iss = ISSService()
     let timer = TimerModel()
     let containers = ContainersService()
+
+    /// The prayer page only appears when github.com/Mqdd27/prayer-times is installed.
+    var prayerInstalled = AppModel.isPrayerAppInstalled()
+    static func isPrayerAppInstalled() -> Bool {
+        NSWorkspace.shared.urlForApplication(withBundleIdentifier: "id.mqdd.prayertimes") != nil
+    }
+
+    var pages: [Page] { Page.allCases.filter { $0 != .prayer || prayerInstalled } }
+    var visiblePage: Page { pages.contains(page) ? page : .music }
 
     var compactKind: CompactKind {
         if timer.end != nil { return .timer }
@@ -100,7 +106,9 @@ enum CompactKind: Equatable {
 
     func start() async {
         let source: NowPlayingSource
-        if let paths = AdapterPaths.locate(), await Task.detached(operation: { paths.test() }).value {
+        let paths = AdapterPaths.locate()
+        if let paths { _ = await runCommand("/usr/bin/pkill", ["-f", paths.script]) } // adapters orphaned by a crash or kill
+        if let paths, await Task.detached(operation: { paths.test() }).value {
             source = AdapterSource(paths: paths)
         } else {
             adapterOK = false
@@ -128,7 +136,7 @@ enum CompactKind: Equatable {
                 timer.tick(Date())
                 if tick % 3 == 0 { await agents.refresh() }
                 if tick % 900 == 0 { await weather.refresh(location.place) }
-                if expanded, (page == .iss && tick % 5 == 0) || (page == .containers && tick % 3 == 0) {
+                if expanded, page == .containers, tick % 3 == 0 {
                     await refreshVisiblePage()
                 }
             }
@@ -137,7 +145,6 @@ enum CompactKind: Equatable {
 
     func refreshVisiblePage() async {
         switch page {
-        case .iss: await iss.refresh()
         case .containers: await containers.refresh()
         case .agents: await agents.refresh()
         case .weather where weather.now == nil: await weather.refresh(location.place)
