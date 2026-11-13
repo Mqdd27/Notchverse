@@ -58,14 +58,19 @@ import SwiftUI
         let mouseScreen = NSScreen.screens.first { NSMouseInRect(NSEvent.mouseLocation, $0.frame, false) }
         guard let screen = (model.screenChoice == "mouse" ? mouseScreen : nil) ?? NSScreen.screens.first else { return }
 
-        let notchHeight = screen.safeAreaInsets.top
-        let notch = model.displayMode == "notch" || (model.displayMode == "auto" && notchHeight > 0)
-        let inset = notch ? max(notchHeight, NSStatusBar.system.thickness) : 0
+        // Real notch: its size from the screen. No notch: a virtual one the size of a MacBook Pro notch (≈200×32 pt).
+        let realNotch = screen.safeAreaInsets.top
+        let notchWidth = realNotch > 0
+            ? screen.frame.width - (screen.auxiliaryTopLeftArea?.width ?? 0) - (screen.auxiliaryTopRightArea?.width ?? 0) : 200
+        let attached = model.displayMode != "floating"
+        let inset = attached ? realNotch : 0 // real notch: content sits below the camera
         if model.notchInset != inset { model.notchInset = inset }
+        if model.attached != attached { model.attached = attached }
 
-        let size = model.expanded ? NSSize(width: 460, height: 320)
-            : NSSize(width: model.compactKind == .music ? 380 : 340, height: 38)
-        let top = notch ? screen.frame.maxY : screen.visibleFrame.maxY - 8
+        let compactHeight: CGFloat = !attached ? 38 : realNotch > 0 ? 28 : 32
+        let compactWidth = max(notchWidth + 100, model.compactKind == .music ? 360 : 300)
+        let size = model.expanded ? NSSize(width: 460, height: 320) : NSSize(width: compactWidth, height: compactHeight)
+        let top = attached ? screen.frame.maxY : screen.visibleFrame.maxY - 8
         let frame = NSRect(x: screen.frame.midX - size.width / 2, y: top - size.height - inset,
                            width: size.width, height: size.height + inset)
 

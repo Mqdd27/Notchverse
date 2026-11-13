@@ -60,6 +60,7 @@ enum IdleItem: String, CaseIterable {
     var candidates: [LRCLIBRecord]? // non-nil = manual picker open
     var userOffset: TimeInterval = 0
     var notchInset: CGFloat = 0
+    var attached = true // pinned to the top edge like a notch, vs floating below the menu bar
     var loginError: String?
     var page = Page(rawValue: UserDefaults.standard.string(forKey: "page") ?? "") ?? .music {
         didSet {
@@ -110,7 +111,7 @@ enum IdleItem: String, CaseIterable {
 
     // Settings (UserDefaults-backed)
     @ObservationIgnored private let defaults = UserDefaults.standard
-    var displayMode = UserDefaults.standard.string(forKey: "displayMode") ?? "auto" { didSet { defaults.set(displayMode, forKey: "displayMode") } }
+    var displayMode = UserDefaults.standard.string(forKey: "displayMode") == "floating" ? "floating" : "auto" { didSet { defaults.set(displayMode, forKey: "displayMode") } }
     var screenChoice = UserDefaults.standard.string(forKey: "screenChoice") ?? "main" { didSet { defaults.set(screenChoice, forKey: "screenChoice") } }
     var hideInFullscreen = UserDefaults.standard.bool(forKey: "hideInFullscreen") { didSet { defaults.set(hideInFullscreen, forKey: "hideInFullscreen") } }
     var blacklistText = UserDefaults.standard.string(forKey: "blacklist") ?? "" { didSet { defaults.set(blacklistText, forKey: "blacklist") } }

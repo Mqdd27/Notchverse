@@ -13,8 +13,8 @@ struct PillView: View {
             Group {
                 if model.expanded { expanded(pos, now: ctx.date) } else { compact(pos, now: ctx.date) }
             }
-            .padding(.horizontal, 14)
-            .padding(.top, model.notchInset + (model.expanded ? 14 : 0))
+            .padding(.horizontal, model.attached ? 22 : 14)
+            .padding(.top, model.notchInset + (model.expanded ? 12 : 0))
             .padding(.bottom, model.expanded ? 12 : 0)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .background(shape.fill(.black))
@@ -26,10 +26,10 @@ struct PillView: View {
         .onTapGesture { model.expanded.toggle() }
     }
 
-    private var shape: UnevenRoundedRectangle {
+    private var shape: NotchShape {
+        if model.attached { return NotchShape(flare: 6, topRadius: 0, bottomRadius: model.expanded ? 24 : 12) }
         let r: CGFloat = model.expanded ? 22 : 19
-        let top: CGFloat = model.notchInset > 0 ? 0 : r // flush with the screen edge in notch mode
-        return UnevenRoundedRectangle(topLeadingRadius: top, bottomLeadingRadius: r, bottomTrailingRadius: r, topTrailingRadius: top)
+        return NotchShape(flare: 0, topRadius: r, bottomRadius: r)
     }
 
     /// Wall-clock dates at which each lyric line starts, while playing.
@@ -329,8 +329,7 @@ struct SettingsView: View {
             Toggle("Launch at login", isOn: $model.launchAtLogin)
             if let e = model.loginError { Text(e).font(.caption).foregroundStyle(.red) }
             Picker("Display mode", selection: $model.displayMode) {
-                Text("Automatic").tag("auto")
-                Text("Notch").tag("notch")
+                Text("Notch (top edge)").tag("auto")
                 Text("Floating pill").tag("floating")
             }
             Section("When nothing is playing (both Nothing hides the pill)") {
@@ -392,5 +391,42 @@ struct LineSchedule: TimelineSchedule {
             }
             return current
         }
+    }
+}
+
+/// Notch outline: square top with small outward flares into the menu bar, rounded bottom.
+/// flare 0 + topRadius gives a plain rounded pill.
+struct NotchShape: Shape {
+    var flare: CGFloat
+    var topRadius: CGFloat
+    var bottomRadius: CGFloat
+
+    func path(in rect: CGRect) -> Path {
+        let w = rect.width, h = rect.height, f = flare
+        let t = min(topRadius, h / 2), b = min(bottomRadius, h / 2)
+        let l = f, r = w - f
+        var p = Path()
+        if f > 0 {
+            p.move(to: CGPoint(x: 0, y: 0))
+            p.addLine(to: CGPoint(x: w, y: 0))
+            p.addQuadCurve(to: CGPoint(x: r, y: f), control: CGPoint(x: r, y: 0))
+        } else {
+            p.move(to: CGPoint(x: l + t, y: 0))
+            p.addLine(to: CGPoint(x: r - t, y: 0))
+            p.addQuadCurve(to: CGPoint(x: r, y: t), control: CGPoint(x: r, y: 0))
+        }
+        p.addLine(to: CGPoint(x: r, y: h - b))
+        p.addQuadCurve(to: CGPoint(x: r - b, y: h), control: CGPoint(x: r, y: h))
+        p.addLine(to: CGPoint(x: l + b, y: h))
+        p.addQuadCurve(to: CGPoint(x: l, y: h - b), control: CGPoint(x: l, y: h))
+        if f > 0 {
+            p.addLine(to: CGPoint(x: l, y: f))
+            p.addQuadCurve(to: CGPoint(x: 0, y: 0), control: CGPoint(x: l, y: 0))
+        } else {
+            p.addLine(to: CGPoint(x: l, y: t))
+            p.addQuadCurve(to: CGPoint(x: l + t, y: 0), control: CGPoint(x: l, y: 0))
+        }
+        p.closeSubpath()
+        return p
     }
 }
