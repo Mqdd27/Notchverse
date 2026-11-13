@@ -10,8 +10,8 @@ floats as a pill on those that don't.
   **Containers** (Docker via Colima/Docker Desktop/OrbStack:
   start/stop; hidden when `docker` isn't installed).
 - Closed, the pill shows the most important thing: running timer › agent that needs you › playing music ›
-  your choice in Settings › "When nothing is playing" (next prayer, clock, weather, agents, Docker containers,
-  or hide the pill).
+  two items you pick in Settings › "When nothing is playing", left and right (next prayer, clock, weather,
+  coding agents, Docker containers, or nothing; nothing on both sides hides the pill).
 - Per-song lyrics offset (±0.5 s), "Wrong lyrics?" picker, settings in the menu bar icon.
 
 ## Install

@@ -65,49 +65,53 @@ struct PillView: View {
         }
     }
 
-    @ViewBuilder private func idle(_ now: Date) -> some View {
+    private func idle(_ now: Date) -> some View {
+        let slots = model.idleSlots
+        return HStack(spacing: 8) {
+            idleItem(slots[0], now)
+            Spacer(minLength: 8)
+            idleItem(slots[1], now)
+        }
+        .font(.system(size: 13, weight: .semibold))
+        .lineLimit(1)
+        .frame(maxHeight: .infinity)
+    }
+
+    @ViewBuilder private func idleItem(_ item: IdleItem, _ now: Date) -> some View {
         let p = model.location.place
-        let w = model.weather.now
-        switch model.effectiveIdle {
+        switch item {
+        case .none:
+            EmptyView()
+        case .prayer:
+            let next = nextPrayer(lat: p.lat, lng: p.lng, tz: p.timeZone, now: now)
+            Label("\(next.0.rawValue) \(PrayerPage.time(next.1, p.timeZone))", systemImage: next.0.icon)
+        case .clock:
+            Text(PrayerPage.time(now, .current)).monospacedDigit()
+        case .weather:
+            if let w = model.weather.now {
+                HStack(spacing: 4) {
+                    Image(systemName: w.symbol).symbolRenderingMode(.multicolor)
+                    Text("\(Int(w.temp.rounded()))°")
+                }
+                .accessibilityElement(children: .combine)
+                .accessibilityLabel("\(Int(w.temp.rounded())) degrees, \(w.label)")
+            }
         case .agents:
             let a = model.agents
             let idle = a.agents.count - a.working
             let text = a.agents.isEmpty ? "No agents"
                 : a.working == 1 ? a.agents.first { $0.state == "working" }!.name + (idle > 0 ? " · \(idle) idle" : "")
                 : "\(a.working) working · \(idle) idle"
-            compactRow("terminal", text, tint: a.working > 0 ? .green : .gray)
+            HStack(spacing: 6) {
+                Image(systemName: "terminal").foregroundStyle(a.working > 0 ? .green : .gray)
+                Text(text)
+            }
         case .containers:
             let up = model.containers.containers.filter(\.running).count
-            compactRow("shippingbox", model.containers.reachable ? "\(up) container\(up == 1 ? "" : "s") running" : "Docker not running",
-                       tint: up > 0 ? .green : .gray)
-        case .weather:
-            HStack(spacing: 8) {
-                if let w {
-                    Image(systemName: w.symbol).symbolRenderingMode(.multicolor)
-                    Text("\(Int(w.temp.rounded()))° \(w.label)").font(.system(size: 13, weight: .semibold))
-                }
-                Spacer()
-                Text(p.name).font(.system(size: 11)).foregroundStyle(.white.opacity(0.55)).lineLimit(1)
+            HStack(spacing: 6) {
+                Image(systemName: "shippingbox").foregroundStyle(up > 0 ? .green : .gray)
+                Text(model.containers.reachable ? "\(up) running" : "Docker off")
             }
-            .font(.system(size: 13))
-            .frame(maxHeight: .infinity)
-        default: // prayer, clock (hidden never renders: the panel is ordered out)
-            HStack(spacing: 8) {
-                if model.effectiveIdle == .prayer {
-                    let next = nextPrayer(lat: p.lat, lng: p.lng, tz: p.timeZone, now: now)
-                    Image(systemName: next.0.icon)
-                    Text("\(next.0.rawValue) \(PrayerPage.time(next.1, p.timeZone))").font(.system(size: 13, weight: .semibold))
-                } else {
-                    Text(PrayerPage.time(now, .current)).font(.system(size: 13, weight: .semibold)).monospacedDigit()
-                }
-                Spacer()
-                if let w {
-                    Image(systemName: w.symbol).symbolRenderingMode(.multicolor)
-                    Text("\(Int(w.temp.rounded()))°").font(.system(size: 13, weight: .semibold))
-                }
-            }
-            .font(.system(size: 13))
-            .frame(maxHeight: .infinity)
         }
     }
 
@@ -329,8 +333,13 @@ struct SettingsView: View {
                 Text("Notch").tag("notch")
                 Text("Floating pill").tag("floating")
             }
-            Picker("When nothing is playing", selection: $model.idleShow) {
-                ForEach(model.idleOptions, id: \.self) { Text($0.label).tag($0) }
+            Section("When nothing is playing (both Nothing hides the pill)") {
+                Picker("Left", selection: $model.idleLeft) {
+                    ForEach(model.idleOptions, id: \.self) { Text($0.label).tag($0) }
+                }
+                Picker("Right", selection: $model.idleRight) {
+                    ForEach(model.idleOptions, id: \.self) { Text($0.label).tag($0) }
+                }
             }
             Picker("Show on", selection: $model.screenChoice) {
                 Text("Main display").tag("main")

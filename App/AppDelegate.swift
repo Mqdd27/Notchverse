@@ -51,7 +51,7 @@ import SwiftUI
     }
 
     private func layout() {
-        if model.compactKind == .idle, model.effectiveIdle == .hidden, !model.expanded {
+        if model.compactKind == .idle, model.idleSlots.allSatisfy { $0 == .none }, !model.expanded {
             panel.orderOut(nil)
             return
         }
@@ -64,7 +64,7 @@ import SwiftUI
         if model.notchInset != inset { model.notchInset = inset }
 
         let size = model.expanded ? NSSize(width: 460, height: 320)
-            : NSSize(width: model.compactKind == .music ? 380 : 260, height: 38)
+            : NSSize(width: model.compactKind == .music ? 380 : 340, height: 38)
         let top = notch ? screen.frame.maxY : screen.visibleFrame.maxY - 8
         let frame = NSRect(x: screen.frame.midX - size.width / 2, y: top - size.height - inset,
                            width: size.width, height: size.height + inset)
