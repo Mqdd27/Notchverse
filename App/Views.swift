@@ -71,8 +71,11 @@ struct PillView: View {
         switch model.effectiveIdle {
         case .agents:
             let a = model.agents
-            compactRow("terminal", a.agents.isEmpty ? "No agents" : "\(a.working) working · \(a.agents.count - a.working) idle",
-                       tint: a.working > 0 ? .green : .gray)
+            let idle = a.agents.count - a.working
+            let text = a.agents.isEmpty ? "No agents"
+                : a.working == 1 ? a.agents.first { $0.state == "working" }!.name + (idle > 0 ? " · \(idle) idle" : "")
+                : "\(a.working) working · \(idle) idle"
+            compactRow("terminal", text, tint: a.working > 0 ? .green : .gray)
         case .containers:
             let up = model.containers.containers.filter(\.running).count
             compactRow("shippingbox", model.containers.reachable ? "\(up) container\(up == 1 ? "" : "s") running" : "Docker not running",
