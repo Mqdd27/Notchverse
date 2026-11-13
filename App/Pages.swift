@@ -223,7 +223,6 @@ struct Marquee: View {
     let text: String
     var size: CGFloat = 13
     var weight: Font.Weight = .regular
-    var alignment: Alignment = .leading // when it fits
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var nsFont: NSFont {
@@ -241,7 +240,7 @@ struct Marquee: View {
         let textWidth = ceil((text as NSString).size(withAttributes: [.font: font]).width) + 2
         GeometryReader { geo in
             if textWidth <= geo.size.width || reduceMotion {
-                Text(text).lineLimit(1).frame(maxWidth: .infinity, alignment: alignment)
+                Text(text).lineLimit(1).frame(maxWidth: .infinity, alignment: .leading)
             } else {
                 let gap: CGFloat = 40, speed: CGFloat = 30 // points per second
                 let cycle = textWidth + gap
@@ -262,6 +261,7 @@ struct Marquee: View {
             }
         }
         .font(.system(size: size, weight: weight))
+        .frame(maxWidth: textWidth) // hug the text, so callers can center or align it
         .frame(height: ceil(NSLayoutManager().defaultLineHeight(for: font)))
         .id(text) // restart the scroll when the text changes
     }

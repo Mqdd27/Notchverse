@@ -67,11 +67,17 @@ struct PillView: View {
 
     private func idle(_ now: Date) -> some View {
         let slots = model.idleSlots
+        let shown = slots.filter { $0 != .none }
         return HStack(spacing: 8) {
-            idleItem(slots[0], now)
-            Spacer(minLength: 8)
-            idleItem(slots[1], now)
+            if shown.count == 1 {
+                idleItem(shown[0], now) // one item: centered
+            } else {
+                idleItem(slots[0], now)
+                Spacer(minLength: 8)
+                idleItem(slots[1], now)
+            }
         }
+        .frame(maxWidth: .infinity)
         .font(.system(size: 13, weight: .semibold))
         .lineLimit(1)
         .frame(maxHeight: .infinity)
@@ -119,6 +125,7 @@ struct PillView: View {
         HStack(spacing: 8) {
             Image(systemName: symbol).foregroundStyle(tint)
             Marquee(text: text, size: 13, weight: .semibold).monospacedDigit()
+            Spacer(minLength: 0)
         }
         .font(.system(size: 13))
         .frame(maxHeight: .infinity)
@@ -129,7 +136,8 @@ struct PillView: View {
         let text = idx.map { syncedLines![$0].text.isEmpty ? "♪" : syncedLines![$0].text } ?? titleLine
         return HStack(spacing: 10) {
             Artwork(image: model.state?.artwork, size: 22)
-            Marquee(text: text, size: 13, weight: .semibold, alignment: .center)
+            Marquee(text: text, size: 13, weight: .semibold)
+                .frame(maxWidth: .infinity)
                 .transition(.opacity)
             Image(systemName: "waveform")
                 .font(.system(size: 13))
