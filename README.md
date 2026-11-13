@@ -9,8 +9,9 @@ floats as a pill on those that don't.
   [Prayer Times](https://github.com/Mqdd27/prayer-times) is installed), **Timer**,
   **Containers** (Docker via Colima/Docker Desktop/OrbStack:
   start/stop; hidden when `docker` isn't installed).
-- Closed, the pill shows the most important thing: running timer › agent that needs you › music › agents working ›
-  next prayer (or clock) and temperature.
+- Closed, the pill shows the most important thing: running timer › agent that needs you › playing music ›
+  your choice in Settings › "When nothing is playing" (next prayer, clock, weather, agents, Docker containers,
+  or hide the pill).
 - Per-song lyrics offset (±0.5 s), "Wrong lyrics?" picker, settings in the menu bar icon.
 
 ## Install
