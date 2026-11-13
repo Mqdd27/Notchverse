@@ -20,7 +20,9 @@ import SwiftUI
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         statusItem.button?.image = NSImage(systemSymbolName: "music.note", accessibilityDescription: "Notchverse")
         let menu = NSMenu()
-        menu.addItem(withTitle: "Show / Hide Lyrics", action: #selector(toggleVisible), keyEquivalent: "").target = self
+        let lyricsItem = menu.addItem(withTitle: "Show Lyrics", action: #selector(toggleLyrics(_:)), keyEquivalent: "l")
+        lyricsItem.target = self
+        lyricsItem.state = model.showLyrics ? .on : .off
         menu.addItem(withTitle: "Settings…", action: #selector(openSettings), keyEquivalent: ",").target = self
         menu.addItem(.separator())
         menu.addItem(withTitle: "Quit Notchverse", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
@@ -43,7 +45,7 @@ import SwiftUI
     }
 
     private func layout() {
-        guard model.userVisible, model.state != nil else { panel.orderOut(nil); return }
+        guard model.state != nil else { panel.orderOut(nil); return }
         let mouseScreen = NSScreen.screens.first { NSMouseInRect(NSEvent.mouseLocation, $0.frame, false) }
         guard let screen = (model.screenChoice == "mouse" ? mouseScreen : nil) ?? NSScreen.screens.first else { return }
 
@@ -52,7 +54,8 @@ import SwiftUI
         let inset = notch ? max(notchHeight, NSStatusBar.system.thickness) : 0
         if model.notchInset != inset { model.notchInset = inset }
 
-        let size = model.expanded ? NSSize(width: 440, height: 290) : NSSize(width: 380, height: 38)
+        let size = !model.expanded ? NSSize(width: 380, height: 38)
+            : NSSize(width: 440, height: model.showLyrics || model.candidates != nil ? 290 : 110)
         let top = notch ? screen.frame.maxY : screen.visibleFrame.maxY - 8
         let frame = NSRect(x: screen.frame.midX - size.width / 2, y: top - size.height - inset,
                            width: size.width, height: size.height + inset)
@@ -70,7 +73,10 @@ import SwiftUI
         panel.orderFrontRegardless()
     }
 
-    @objc private func toggleVisible() { model.userVisible.toggle() }
+    @objc private func toggleLyrics(_ item: NSMenuItem) {
+        model.showLyrics.toggle()
+        item.state = model.showLyrics ? .on : .off
+    }
 
     @objc private func openSettings() {
         if settingsWindow == nil {

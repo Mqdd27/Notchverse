@@ -9,7 +9,9 @@ import ServiceManagement
     var state: NowPlayingState?
     var lyrics: Lyrics? // nil = still searching
     var expanded = false
-    var userVisible = true
+    var showLyrics = UserDefaults.standard.object(forKey: "showLyrics") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(showLyrics, forKey: "showLyrics") }
+    }
     var adapterOK = true
     var candidates: [LRCLIBRecord]? // non-nil = manual picker open
     var userOffset: TimeInterval = 0

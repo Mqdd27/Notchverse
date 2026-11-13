@@ -46,7 +46,7 @@ struct PillView: View {
     // MARK: Compact
 
     private func compact(_ pos: TimeInterval) -> some View {
-        let idx = syncedLines.flatMap { LyricsClock.activeIndex(in: $0, at: pos) }
+        let idx = model.showLyrics ? syncedLines.flatMap { LyricsClock.activeIndex(in: $0, at: pos) } : nil
         let text = idx.map { syncedLines![$0].text.isEmpty ? "♪" : syncedLines![$0].text } ?? titleLine
         return HStack(spacing: 10) {
             Artwork(image: model.state?.artwork, size: 22)
@@ -84,8 +84,13 @@ struct PillView: View {
                 ProgressView(value: min(max(pos - model.userOffset, 0), d), total: d)
                     .progressViewStyle(.linear).tint(.white).controlSize(.mini)
             }
-            if let c = model.candidates { candidateList(c) } else { lyricsBody(pos) }
-            footer
+            if let c = model.candidates {
+                candidateList(c)
+                footer
+            } else if model.showLyrics {
+                lyricsBody(pos)
+                footer
+            }
         }
     }
 
