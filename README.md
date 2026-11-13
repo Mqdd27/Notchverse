@@ -7,7 +7,8 @@ floats as a pill on those that don't.
 - Hover or click the pill to open it. Pages: **Music** (synced lyrics, controls), **Agents** (tuios coding agents,
   click to focus a pane), **Weather + moon phase**, **Prayer times** (Kemenag RI method; shown only when
   [Prayer Times](https://github.com/Mqdd27/prayer-times) is installed), **Timer**,
-  **Containers** (Apple `container`: start/stop).
+  **Containers** (Docker via Colima/Docker Desktop/OrbStack:
+  start/stop; hidden when `docker` isn't installed).
 - Closed, the pill shows the most important thing: running timer › agent that needs you › music › agents working ›
   next prayer (or clock) and temperature.
 - Per-song lyrics offset (±0.5 s), "Wrong lyrics?" picker, settings in the menu bar icon.

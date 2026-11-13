@@ -236,26 +236,30 @@ func findBinary(_ name: String) -> String? {
     }
 }
 
-// MARK: Apple `container` runtime
+// MARK: Docker containers (Colima, Docker Desktop, OrbStack: whatever the current docker context points at)
 
 @MainActor @Observable final class ContainersService {
     struct Container: Identifiable, Equatable {
-        let id: String, image: String, status: String
-        var running: Bool { status == "running" }
+        let id: String, name: String, image: String, state: String, status: String
+        var running: Bool { state == "running" }
     }
 
     var containers: [Container] = []
-    @ObservationIgnored let binary = findBinary("container")
+    var reachable = true
+    @ObservationIgnored let binary = findBinary("docker")
 
     func refresh() async {
-        guard let binary, let data = await runCommand(binary, ["list", "--all", "--format", "json"]),
-              let arr = (try? JSONSerialization.jsonObject(with: data)) as? [[String: Any]] else { return }
-        containers = arr.compactMap { o in
-            let cfg = o["configuration"] as? [String: Any]
-            guard let id = cfg?["id"] as? String else { return nil }
-            return Container(id: id, image: (cfg?["image"] as? [String: Any])?["reference"] as? String ?? "",
-                             status: o["status"] as? String ?? "unknown")
+        guard let binary else { return }
+        guard let data = await runCommand(binary, ["ps", "--all", "--format", "{{.ID}}\t{{.Names}}\t{{.Image}}\t{{.State}}\t{{.Status}}"]) else {
+            reachable = false
+            return
         }
+        reachable = true
+        containers = String(decoding: data, as: UTF8.self).split(separator: "\n").compactMap { line in
+            let f = line.split(separator: "\t", omittingEmptySubsequences: false).map(String.init)
+            return f.count == 5 ? Container(id: f[0], name: f[1], image: f[2], state: f[3], status: f[4]) : nil
+        }
+        .sorted { ($0.running ? 0 : 1, $0.name) < ($1.running ? 0 : 1, $1.name) }
     }
 
     func toggle(_ c: Container) {

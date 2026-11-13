@@ -64,7 +64,9 @@ enum CompactKind: Equatable {
         NSWorkspace.shared.urlForApplication(withBundleIdentifier: "id.mqdd.prayertimes") != nil
     }
 
-    var pages: [Page] { Page.allCases.filter { $0 != .prayer || prayerInstalled } }
+    var pages: [Page] {
+        Page.allCases.filter { ($0 != .prayer || prayerInstalled) && ($0 != .containers || containers.binary != nil) }
+    }
     var visiblePage: Page { pages.contains(page) ? page : .music }
 
     var compactKind: CompactKind {

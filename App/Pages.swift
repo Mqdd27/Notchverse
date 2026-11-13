@@ -179,14 +179,14 @@ struct TimerPage: View {
     }
 }
 
-// MARK: Containers
+// MARK: Containers (docker CLI)
 
 struct ContainersPage: View {
     let containers: ContainersService
 
     var body: some View {
-        if containers.binary == nil {
-            Note(text: "Apple container CLI not installed")
+        if !containers.reachable {
+            Note(text: "Docker isn't reachable. Is Colima running? (colima start)")
         } else if containers.containers.isEmpty {
             Note(text: "No containers")
         } else {
@@ -196,15 +196,15 @@ struct ContainersPage: View {
                         HStack(spacing: 10) {
                             Circle().fill(c.running ? .green : .gray).frame(width: 8, height: 8)
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(c.id).font(.system(size: 13, weight: .semibold)).lineLimit(1)
-                                Text(c.image).font(.system(size: 11)).foregroundStyle(secondary).lineLimit(1)
+                                Text(c.name).font(.system(size: 13, weight: .semibold)).lineLimit(1)
+                                Text("\(c.image) · \(c.status)").font(.system(size: 11)).foregroundStyle(secondary).lineLimit(1)
                             }
                             Spacer()
                             Button(c.running ? "Stop" : "Start") { containers.toggle(c) }
                                 .buttonStyle(.plain)
                                 .font(.system(size: 12, weight: .semibold))
                                 .foregroundStyle(c.running ? .orange : .green)
-                                .accessibilityLabel("\(c.running ? "Stop" : "Start") \(c.id)")
+                                .accessibilityLabel("\(c.running ? "Stop" : "Start") \(c.name)")
                         }
                         .padding(8)
                         .background(RoundedRectangle(cornerRadius: 10).fill(.white.opacity(0.07)))
