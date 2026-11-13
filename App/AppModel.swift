@@ -22,7 +22,24 @@ enum Page: String, CaseIterable {
 
 /// What the closed pill shows, highest priority first.
 enum CompactKind: Equatable {
-    case timer, agentNeedsYou, music, agentsWorking, idle
+    case timer, agentNeedsYou, music, idle
+}
+
+/// What the closed pill shows when no media is playing (Settings › "When nothing is playing").
+enum IdleShow: String, CaseIterable {
+    case auto, prayer, clock, weather, agents, containers, hidden
+
+    var label: String {
+        switch self {
+        case .auto: "Automatic (prayer or clock)"
+        case .prayer: "Next prayer + weather"
+        case .clock: "Clock + weather"
+        case .weather: "Weather"
+        case .agents: "Coding agents"
+        case .containers: "Docker containers"
+        case .hidden: "Nothing (hide the pill)"
+        }
+    }
 }
 
 @MainActor @Observable final class AppModel {
@@ -64,6 +81,21 @@ enum CompactKind: Equatable {
         NSWorkspace.shared.urlForApplication(withBundleIdentifier: "id.mqdd.prayertimes") != nil
     }
 
+    var idleShow = IdleShow(rawValue: UserDefaults.standard.string(forKey: "idleShow") ?? "") ?? .auto {
+        didSet { defaults.set(idleShow.rawValue, forKey: "idleShow") }
+    }
+
+    /// Options that make sense on this Mac.
+    var idleOptions: [IdleShow] {
+        IdleShow.allCases.filter { ($0 != .prayer || prayerInstalled) && ($0 != .containers || containers.binary != nil) }
+    }
+
+    /// `idleShow` with auto resolved and unavailable choices falling back to the clock.
+    var effectiveIdle: IdleShow {
+        if idleShow == .auto { return prayerInstalled ? .prayer : .clock }
+        return idleOptions.contains(idleShow) ? idleShow : .clock
+    }
+
     var pages: [Page] {
         Page.allCases.filter { ($0 != .prayer || prayerInstalled) && ($0 != .containers || containers.binary != nil) }
     }
@@ -72,8 +104,7 @@ enum CompactKind: Equatable {
     var compactKind: CompactKind {
         if timer.end != nil { return .timer }
         if agents.needsYou != nil { return .agentNeedsYou }
-        if state != nil { return .music }
-        if agents.working > 0 { return .agentsWorking }
+        if state?.isPlaying == true { return .music }
         return .idle
     }
 
@@ -138,6 +169,7 @@ enum CompactKind: Equatable {
                 timer.tick(Date())
                 if tick % 3 == 0 { await agents.refresh() }
                 if tick % 900 == 0 { await weather.refresh(location.place) }
+                if !expanded, effectiveIdle == .containers, tick % 10 == 0 { await containers.refresh() }
                 if expanded, page == .containers, tick % 3 == 0 {
                     await refreshVisiblePage()
                 }

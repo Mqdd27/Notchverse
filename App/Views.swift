@@ -60,13 +60,37 @@ struct PillView: View {
             compactRow("timer", TimerModel.format(model.timer.remaining(at: now)), tint: .orange)
         case .agentNeedsYou:
             compactRow("exclamationmark.bubble.fill", "\(model.agents.needsYou?.name ?? "Agent") needs you", tint: .orange)
-        case .agentsWorking:
-            let n = model.agents.working
-            compactRow("terminal", n == 1 ? "1 agent working" : "\(n) agents working", tint: .green)
         case .idle:
-            let p = model.location.place
+            idle(now)
+        }
+    }
+
+    @ViewBuilder private func idle(_ now: Date) -> some View {
+        let p = model.location.place
+        let w = model.weather.now
+        switch model.effectiveIdle {
+        case .agents:
+            let a = model.agents
+            compactRow("terminal", a.agents.isEmpty ? "No agents" : "\(a.working) working · \(a.agents.count - a.working) idle",
+                       tint: a.working > 0 ? .green : .gray)
+        case .containers:
+            let up = model.containers.containers.filter(\.running).count
+            compactRow("shippingbox", model.containers.reachable ? "\(up) container\(up == 1 ? "" : "s") running" : "Docker not running",
+                       tint: up > 0 ? .green : .gray)
+        case .weather:
             HStack(spacing: 8) {
-                if model.prayerInstalled {
+                if let w {
+                    Image(systemName: w.symbol).symbolRenderingMode(.multicolor)
+                    Text("\(Int(w.temp.rounded()))° \(w.label)").font(.system(size: 13, weight: .semibold))
+                }
+                Spacer()
+                Text(p.name).font(.system(size: 11)).foregroundStyle(.white.opacity(0.55)).lineLimit(1)
+            }
+            .font(.system(size: 13))
+            .frame(maxHeight: .infinity)
+        default: // prayer, clock (hidden never renders: the panel is ordered out)
+            HStack(spacing: 8) {
+                if model.effectiveIdle == .prayer {
                     let next = nextPrayer(lat: p.lat, lng: p.lng, tz: p.timeZone, now: now)
                     Image(systemName: next.0.icon)
                     Text("\(next.0.rawValue) \(PrayerPage.time(next.1, p.timeZone))").font(.system(size: 13, weight: .semibold))
@@ -74,7 +98,7 @@ struct PillView: View {
                     Text(PrayerPage.time(now, .current)).font(.system(size: 13, weight: .semibold)).monospacedDigit()
                 }
                 Spacer()
-                if let w = model.weather.now {
+                if let w {
                     Image(systemName: w.symbol).symbolRenderingMode(.multicolor)
                     Text("\(Int(w.temp.rounded()))°").font(.system(size: 13, weight: .semibold))
                 }
@@ -301,6 +325,9 @@ struct SettingsView: View {
                 Text("Automatic").tag("auto")
                 Text("Notch").tag("notch")
                 Text("Floating pill").tag("floating")
+            }
+            Picker("When nothing is playing", selection: $model.idleShow) {
+                ForEach(model.idleOptions, id: \.self) { Text($0.label).tag($0) }
             }
             Picker("Show on", selection: $model.screenChoice) {
                 Text("Main display").tag("main")

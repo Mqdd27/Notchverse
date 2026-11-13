@@ -51,6 +51,10 @@ import SwiftUI
     }
 
     private func layout() {
+        if model.compactKind == .idle, model.effectiveIdle == .hidden, !model.expanded {
+            panel.orderOut(nil)
+            return
+        }
         let mouseScreen = NSScreen.screens.first { NSMouseInRect(NSEvent.mouseLocation, $0.frame, false) }
         guard let screen = (model.screenChoice == "mouse" ? mouseScreen : nil) ?? NSScreen.screens.first else { return }
 
