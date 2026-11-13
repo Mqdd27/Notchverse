@@ -104,7 +104,7 @@ struct PillView: View {
                 : "\(a.working) working · \(idle) idle"
             HStack(spacing: 6) {
                 Image(systemName: "terminal").foregroundStyle(a.working > 0 ? .green : .gray)
-                Text(text)
+                Marquee(text: text, size: 13, weight: .semibold)
             }
         case .containers:
             let up = model.containers.containers.filter(\.running).count
@@ -118,8 +118,7 @@ struct PillView: View {
     private func compactRow(_ symbol: String, _ text: String, tint: Color) -> some View {
         HStack(spacing: 8) {
             Image(systemName: symbol).foregroundStyle(tint)
-            Text(text).font(.system(size: 13, weight: .semibold)).monospacedDigit().lineLimit(1)
-            Spacer(minLength: 0)
+            Marquee(text: text, size: 13, weight: .semibold).monospacedDigit()
         }
         .font(.system(size: 13))
         .frame(maxHeight: .infinity)
@@ -130,11 +129,7 @@ struct PillView: View {
         let text = idx.map { syncedLines![$0].text.isEmpty ? "♪" : syncedLines![$0].text } ?? titleLine
         return HStack(spacing: 10) {
             Artwork(image: model.state?.artwork, size: 22)
-            Text(text)
-                .font(.system(size: 13, weight: .semibold))
-                .lineLimit(1)
-                .frame(maxWidth: .infinity)
-                .id(text)
+            Marquee(text: text, size: 13, weight: .semibold, alignment: .center)
                 .transition(.opacity)
             Image(systemName: "waveform")
                 .font(.system(size: 13))
@@ -188,8 +183,8 @@ struct PillView: View {
             HStack(spacing: 12) {
                 Artwork(image: model.state?.artwork, size: 52)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(t?.title ?? "").font(.system(size: 14, weight: .bold)).lineLimit(1)
-                    Text(t?.artist ?? "").font(.system(size: 12)).foregroundStyle(.white.opacity(0.6)).lineLimit(1)
+                    Marquee(text: t?.title ?? "", size: 14, weight: .bold)
+                    Marquee(text: t?.artist ?? "", size: 12).foregroundStyle(.white.opacity(0.6))
                 }
                 Spacer(minLength: 8)
                 controls

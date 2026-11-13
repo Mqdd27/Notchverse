@@ -39,7 +39,7 @@ struct AgentsPage: View {
         HStack(spacing: 10) {
             Circle().fill(a.needs_you ? .orange : a.state == "working" ? .green : .gray).frame(width: 8, height: 8)
             VStack(alignment: .leading, spacing: 2) {
-                Text(a.name).font(.system(size: 13, weight: .semibold)).lineLimit(1)
+                Marquee(text: a.name, size: 13, weight: .semibold)
                 Text([a.harness_id, a.folder, a.session].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " · "))
                     .font(.system(size: 11)).foregroundStyle(secondary).lineLimit(1)
             }
@@ -196,7 +196,7 @@ struct ContainersPage: View {
                         HStack(spacing: 10) {
                             Circle().fill(c.running ? .green : .gray).frame(width: 8, height: 8)
                             VStack(alignment: .leading, spacing: 2) {
-                                Text(c.name).font(.system(size: 13, weight: .semibold)).lineLimit(1)
+                                Marquee(text: c.name, size: 13, weight: .semibold)
                                 Text("\(c.image) · \(c.status)").font(.system(size: 11)).foregroundStyle(secondary).lineLimit(1)
                             }
                             Spacer()
@@ -212,5 +212,57 @@ struct ContainersPage: View {
                 }
             }
         }
+    }
+}
+
+// MARK: Running text
+
+/// Single-line text that scrolls when it doesn't fit (static under Reduce Motion).
+/// Width is measured with AppKit because @State needs the SwiftUI macro plugin, missing without Xcode.
+struct Marquee: View {
+    let text: String
+    var size: CGFloat = 13
+    var weight: Font.Weight = .regular
+    var alignment: Alignment = .leading // when it fits
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    private var nsFont: NSFont {
+        let w: NSFont.Weight = switch weight {
+        case .bold: .bold
+        case .semibold: .semibold
+        case .medium: .medium
+        default: .regular
+        }
+        return NSFont.systemFont(ofSize: size, weight: w)
+    }
+
+    var body: some View {
+        let font = nsFont
+        let textWidth = ceil((text as NSString).size(withAttributes: [.font: font]).width) + 2
+        GeometryReader { geo in
+            if textWidth <= geo.size.width || reduceMotion {
+                Text(text).lineLimit(1).frame(maxWidth: .infinity, alignment: alignment)
+            } else {
+                let gap: CGFloat = 40, speed: CGFloat = 30 // points per second
+                let cycle = textWidth + gap
+                HStack(spacing: gap) { Text(text); Text(text) }
+                    .fixedSize()
+                    .keyframeAnimator(initialValue: CGFloat(0), repeating: true) { content, x in
+                        content.offset(x: x)
+                    } keyframes: { _ in
+                        LinearKeyframe(0, duration: 1.5) // pause at the start of each loop
+                        LinearKeyframe(-cycle, duration: cycle / speed)
+                    }
+                    .frame(width: geo.size.width, alignment: .leading)
+                    .clipped()
+                    .mask(LinearGradient(stops: [.init(color: .clear, location: 0), .init(color: .black, location: 0.04),
+                                                 .init(color: .black, location: 0.92), .init(color: .clear, location: 1)],
+                                         startPoint: .leading, endPoint: .trailing))
+                    .accessibilityLabel(text)
+            }
+        }
+        .font(.system(size: size, weight: weight))
+        .frame(height: ceil(NSLayoutManager().defaultLineHeight(for: font)))
+        .id(text) // restart the scroll when the text changes
     }
 }
