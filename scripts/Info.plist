@@ -12,6 +12,8 @@
     <key>LSMinimumSystemVersion</key><string>14.0</string>
     <key>LSUIElement</key><true/>
     <key>NSAppleEventsUsageDescription</key><string>Fallback: reads the current track from Music or Spotify when the system Now Playing source is unavailable.</string>
+    <key>NSLocationUsageDescription</key><string>Weather and prayer times for where you are. Your location stays on this Mac except the rounded coordinates sent to Open-Meteo for the forecast.</string>
+    <key>NSLocationWhenInUseUsageDescription</key><string>Weather and prayer times for where you are.</string>
     <key>NSHumanReadableCopyright</key><string>MIT License</string>
 </dict>
 </plist>

@@ -1,13 +1,13 @@
 # Copy to Casks/notchverse.rb in a tap repo named homebrew-notchverse.
-# Install: brew install --cask --no-quarantine mqdd/notchverse/notchverse
+# Install: brew install --cask --no-quarantine mqdd27/notchverse/notchverse
 cask "notchverse" do
   version "0.1.0"
   sha256 :no_check
 
-  url "https://github.com/Mqdd/Notchverse/releases/download/v#{version}/Notchverse-#{version}.dmg"
+  url "https://github.com/Mqdd27/Notchverse/releases/download/v#{version}/Notchverse-#{version}.dmg"
   name "Notchverse"
   desc "Synced lyrics in a notch-style pill for any player"
-  homepage "https://github.com/Mqdd/Notchverse"
+  homepage "https://github.com/Mqdd27/Notchverse"
 
   depends_on macos: ">= :sonoma"
 

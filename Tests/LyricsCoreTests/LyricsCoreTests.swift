@@ -163,3 +163,28 @@ func liveFetchFromLRCLIB() async {
     guard case .synced(let lines) = lyrics else { Issue.record("got \(lyrics)"); return }
     #expect(lines.count > 20)
 }
+
+// MARK: Sky
+
+@Test func jakartaPrayerTimesAreOrderedAndPlausible() {
+    let tz = TimeZone(identifier: "Asia/Jakarta")!
+    var cal = Calendar(identifier: .gregorian)
+    cal.timeZone = tz
+    let day = cal.date(from: DateComponents(year: 2026, month: 11, day: 14, hour: 12))!
+    let times = prayerTimes(lat: -6.21, lng: 106.85, tz: tz, day: day)
+    #expect(times.map(\.0) == Prayer.allCases)
+    #expect(zip(times, times.dropFirst()).allSatisfy { $0.1 < $1.1 })
+    let dhuhr = cal.dateComponents([.hour, .minute], from: times[1].1)
+    #expect(dhuhr.hour == 11 && (30...50).contains(dhuhr.minute!))
+    let late = cal.date(from: DateComponents(year: 2026, month: 11, day: 14, hour: 23))!
+    #expect(nextPrayer(lat: -6.21, lng: 106.85, tz: tz, now: late).0 == .fajr)
+}
+
+@Test func moonPhaseFromReferenceNewMoon() {
+    let newMoon = Date(timeIntervalSince1970: 947_182_440) // 2000-01-06 18:14 UTC
+    #expect(MoonPhase(date: newMoon).name == "New Moon")
+    let full = MoonPhase(date: newMoon.addingTimeInterval(14.77 * 86400))
+    #expect(full.name == "Full Moon")
+    #expect(full.illumination > 0.99)
+    #expect(MoonPhase(date: newMoon.addingTimeInterval(7.4 * 86400)).name == "First Quarter")
+}

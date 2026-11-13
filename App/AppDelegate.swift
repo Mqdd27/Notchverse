@@ -45,7 +45,6 @@ import SwiftUI
     }
 
     private func layout() {
-        guard model.state != nil else { panel.orderOut(nil); return }
         let mouseScreen = NSScreen.screens.first { NSMouseInRect(NSEvent.mouseLocation, $0.frame, false) }
         guard let screen = (model.screenChoice == "mouse" ? mouseScreen : nil) ?? NSScreen.screens.first else { return }
 
@@ -54,8 +53,8 @@ import SwiftUI
         let inset = notch ? max(notchHeight, NSStatusBar.system.thickness) : 0
         if model.notchInset != inset { model.notchInset = inset }
 
-        let size = !model.expanded ? NSSize(width: 380, height: 38)
-            : NSSize(width: 440, height: model.showLyrics || model.candidates != nil ? 290 : 110)
+        let size = model.expanded ? NSSize(width: 460, height: 320)
+            : NSSize(width: model.compactKind == .music ? 380 : 260, height: 38)
         let top = notch ? screen.frame.maxY : screen.visibleFrame.maxY - 8
         let frame = NSRect(x: screen.frame.midX - size.width / 2, y: top - size.height - inset,
                            width: size.width, height: size.height + inset)

@@ -4,8 +4,12 @@ Synced lyrics in a Dynamic Island–style pill at the top of your Mac screen, fo
 (Apple Music, Spotify, browsers, VLC, IINA…). Sits in the notch on MacBooks that have one,
 floats as a pill on those that don't.
 
-- Hover or click the pill: artwork, controls, progress, 5 lines of lyrics.
-- Per-song offset (±0.5 s), "Wrong lyrics?" picker, settings in the menu bar icon.
+- Hover or click the pill to open it. Pages: **Music** (synced lyrics, controls), **Agents** (tuios coding agents,
+  click to focus a pane), **Weather + moon phase**, **Prayer times** (Kemenag RI method), **Timer**, **ISS** live
+  position, **Containers** (Apple `container`: start/stop).
+- Closed, the pill shows the most important thing: running timer › agent that needs you › music › agents working ›
+  next prayer and temperature.
+- Per-song lyrics offset (±0.5 s), "Wrong lyrics?" picker, settings in the menu bar icon.
 
 ## Install
 
@@ -38,7 +42,16 @@ Command Line Tools only (no Xcode)? Add
 
 ## Privacy
 
-The only network requests go to `lrclib.net` and contain the track title, artist, album and duration.
+Network requests, and what they contain:
+
+| Service | Sent | When |
+|---|---|---|
+| `lrclib.net` | track title, artist, album, duration | on song change |
+| `api.open-meteo.com` | coordinates rounded to 0.01° | every 15 min |
+| `geocoding-api.open-meteo.com` | the city name you type | city search in Settings |
+| `api.wheretheiss.at` | nothing | every 5 s, only while the ISS page is open |
+
+Prayer times and moon phase are computed locally. Location never leaves the Mac otherwise.
 No accounts, no analytics, no telemetry.
 
 ## Lyrics copyright
@@ -48,4 +61,5 @@ respective rights holders.
 
 ## License
 
-MIT. See [LICENSE](LICENSE). Vendored mediaremote-adapter keeps its own BSD-3-Clause license.
+MIT. See [LICENSE](LICENSE). Prayer-time math is ported from
+[prayer-times](https://github.com/Mqdd27/prayer-times) (same author). Vendored mediaremote-adapter keeps its own BSD-3-Clause license.

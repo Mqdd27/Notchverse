@@ -3,12 +3,42 @@ import LyricsCore
 import Observation
 import ServiceManagement
 
+enum Page: String, CaseIterable {
+    case music, agents, weather, prayer, timer, iss, containers
+
+    var icon: String {
+        switch self {
+        case .music: "music.note"
+        case .agents: "terminal"
+        case .weather: "cloud.sun"
+        case .prayer: "sun.horizon"
+        case .timer: "timer"
+        case .iss: "globe.asia.australia"
+        case .containers: "shippingbox"
+        }
+    }
+
+    var label: String {
+        switch self {
+        case .iss: "ISS"
+        default: rawValue.capitalized
+        }
+    }
+}
+
+/// What the closed pill shows, highest priority first.
+enum CompactKind: Equatable {
+    case timer, agentNeedsYou, music, agentsWorking, idle
+}
+
 @MainActor @Observable final class AppModel {
     static let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev"
 
     var state: NowPlayingState?
     var lyrics: Lyrics? // nil = still searching
-    var expanded = false
+    var expanded = false {
+        didSet { if expanded, !oldValue { Task { await refreshVisiblePage() } } }
+    }
     var showLyrics = UserDefaults.standard.object(forKey: "showLyrics") as? Bool ?? true {
         didSet { UserDefaults.standard.set(showLyrics, forKey: "showLyrics") }
     }
@@ -17,6 +47,27 @@ import ServiceManagement
     var userOffset: TimeInterval = 0
     var notchInset: CGFloat = 0
     var loginError: String?
+    var page = Page(rawValue: UserDefaults.standard.string(forKey: "page") ?? "") ?? .music {
+        didSet {
+            UserDefaults.standard.set(page.rawValue, forKey: "page")
+            Task { await refreshVisiblePage() }
+        }
+    }
+
+    let agents = AgentsService()
+    let location = LocationStore()
+    let weather = WeatherService()
+    let iss = ISSService()
+    let timer = TimerModel()
+    let containers = ContainersService()
+
+    var compactKind: CompactKind {
+        if timer.end != nil { return .timer }
+        if agents.needsYou != nil { return .agentNeedsYou }
+        if state != nil { return .music }
+        if agents.working > 0 { return .agentsWorking }
+        return .idle
+    }
 
     // Settings (UserDefaults-backed)
     @ObservationIgnored private let defaults = UserDefaults.standard
@@ -43,7 +94,7 @@ import ServiceManagement
     init() {
         let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("Notchverse/cache")
-        fetcher = LyricsFetcher(client: LRCLIBClient(userAgent: "Notchverse/\(Self.version) (https://github.com/Mqdd/Notchverse)"),
+        fetcher = LyricsFetcher(client: LRCLIBClient(userAgent: "Notchverse/\(Self.version) (https://github.com/Mqdd27/Notchverse)"),
                                 cache: LyricsCache(directory: dir))
     }
 
@@ -58,6 +109,40 @@ import ServiceManagement
         source.onChange = { [weak self] in self?.update($0) }
         source.start()
         self.source = source
+
+        location.onChange = { [weak self] in
+            guard let self else { return }
+            Task { await self.weather.refresh(self.location.place) }
+        }
+        await weather.refresh(location.place)
+        startTicking()
+    }
+
+    /// One 1 Hz loop drives timer, agents and the polled pages (only while visible).
+    private func startTicking() {
+        Task {
+            var tick = 0
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(1))
+                tick += 1
+                timer.tick(Date())
+                if tick % 3 == 0 { await agents.refresh() }
+                if tick % 900 == 0 { await weather.refresh(location.place) }
+                if expanded, (page == .iss && tick % 5 == 0) || (page == .containers && tick % 3 == 0) {
+                    await refreshVisiblePage()
+                }
+            }
+        }
+    }
+
+    func refreshVisiblePage() async {
+        switch page {
+        case .iss: await iss.refresh()
+        case .containers: await containers.refresh()
+        case .agents: await agents.refresh()
+        case .weather where weather.now == nil: await weather.refresh(location.place)
+        default: break
+        }
     }
 
     func stop() { source?.stop() }

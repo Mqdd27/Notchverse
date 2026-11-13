@@ -7,10 +7,11 @@ struct PillView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: 1.0 / 30, paused: !(model.state?.isPlaying ?? false))) { ctx in
+        // 30 Hz only while music plays, otherwise 1 Hz for clocks and countdowns.
+        TimelineView(.animation(minimumInterval: model.state?.isPlaying == true ? 1.0 / 30 : 1)) { ctx in
             let pos = model.clock?.position(at: ctx.date) ?? 0
             Group {
-                if model.expanded { expanded(pos) } else { compact(pos) }
+                if model.expanded { expanded(pos, now: ctx.date) } else { compact(pos, now: ctx.date) }
             }
             .padding(.horizontal, 14)
             .padding(.top, model.notchInset + (model.expanded ? 14 : 0))
@@ -45,7 +46,45 @@ struct PillView: View {
 
     // MARK: Compact
 
-    private func compact(_ pos: TimeInterval) -> some View {
+    @ViewBuilder private func compact(_ pos: TimeInterval, now: Date) -> some View {
+        switch model.compactKind {
+        case .music:
+            musicCompact(pos)
+        case .timer:
+            compactRow("timer", TimerModel.format(model.timer.remaining(at: now)), tint: .orange)
+        case .agentNeedsYou:
+            compactRow("exclamationmark.bubble.fill", "\(model.agents.needsYou?.name ?? "Agent") needs you", tint: .orange)
+        case .agentsWorking:
+            let n = model.agents.working
+            compactRow("terminal", n == 1 ? "1 agent working" : "\(n) agents working", tint: .green)
+        case .idle:
+            let p = model.location.place
+            let next = nextPrayer(lat: p.lat, lng: p.lng, tz: p.timeZone, now: now)
+            HStack(spacing: 8) {
+                Image(systemName: next.0.icon)
+                Text("\(next.0.rawValue) \(PrayerPage.time(next.1, p.timeZone))").font(.system(size: 13, weight: .semibold))
+                Spacer()
+                if let w = model.weather.now {
+                    Image(systemName: w.symbol).symbolRenderingMode(.multicolor)
+                    Text("\(Int(w.temp.rounded()))°").font(.system(size: 13, weight: .semibold))
+                }
+            }
+            .font(.system(size: 13))
+            .frame(maxHeight: .infinity)
+        }
+    }
+
+    private func compactRow(_ symbol: String, _ text: String, tint: Color) -> some View {
+        HStack(spacing: 8) {
+            Image(systemName: symbol).foregroundStyle(tint)
+            Text(text).font(.system(size: 13, weight: .semibold)).monospacedDigit().lineLimit(1)
+            Spacer(minLength: 0)
+        }
+        .font(.system(size: 13))
+        .frame(maxHeight: .infinity)
+    }
+
+    private func musicCompact(_ pos: TimeInterval) -> some View {
         let idx = model.showLyrics ? syncedLines.flatMap { LyricsClock.activeIndex(in: $0, at: pos) } : nil
         let text = idx.map { syncedLines![$0].text.isEmpty ? "♪" : syncedLines![$0].text } ?? titleLine
         return HStack(spacing: 10) {
@@ -68,9 +107,45 @@ struct PillView: View {
 
     // MARK: Expanded
 
-    private func expanded(_ pos: TimeInterval) -> some View {
+    private func expanded(_ pos: TimeInterval, now: Date) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 4) {
+                ForEach(Page.allCases, id: \.self) { p in
+                    Button { model.page = p } label: {
+                        Image(systemName: p.icon)
+                            .font(.system(size: 12))
+                            .frame(width: 30, height: 22)
+                            .background(Capsule().fill(.white.opacity(p == model.page ? 0.2 : 0)))
+                            .contentShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .opacity(p == model.page ? 1 : 0.55)
+                    .accessibilityLabel(p.label)
+                }
+                Spacer()
+                Text(model.page.label).font(.system(size: 11, weight: .semibold)).foregroundStyle(.white.opacity(0.5))
+            }
+            Group {
+                switch model.page {
+                case .music: musicPage(pos)
+                case .agents: AgentsPage(agents: model.agents)
+                case .weather: WeatherPage(weather: model.weather, place: model.location.place, now: now)
+                case .prayer: PrayerPage(place: model.location.place, now: now)
+                case .timer: TimerPage(timer: model.timer, now: now)
+                case .iss: ISSPage(iss: model.iss)
+                case .containers: ContainersPage(containers: model.containers)
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        }
+    }
+
+    @ViewBuilder private func musicPage(_ pos: TimeInterval) -> some View {
         let t = model.state?.track
-        return VStack(alignment: .leading, spacing: 10) {
+        if t == nil {
+            Note(text: "Nothing playing")
+        } else {
+            VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 12) {
                 Artwork(image: model.state?.artwork, size: 52)
                 VStack(alignment: .leading, spacing: 2) {
@@ -90,6 +165,9 @@ struct PillView: View {
             } else if model.showLyrics {
                 lyricsBody(pos)
                 footer
+            } else {
+                Note(text: "Lyrics hidden · menu bar ♪ › Show Lyrics")
+            }
             }
         }
     }
@@ -113,11 +191,11 @@ struct PillView: View {
     @ViewBuilder private func lyricsBody(_ pos: TimeInterval) -> some View {
         switch model.lyrics {
         case nil:
-            note("Searching lyrics…")
+            Note(text: "Searching lyrics…")
         case .instrumental:
-            note("♪ Instrumental")
+            Note(text: "♪ Instrumental")
         case .notFound:
-            note("No lyrics found")
+            Note(text: "No lyrics found")
         case .plain(let text):
             VStack(alignment: .leading, spacing: 4) {
                 Text("NOT SYNCED").font(.system(size: 9, weight: .bold)).foregroundStyle(.white.opacity(0.5))
@@ -140,15 +218,10 @@ struct PillView: View {
         }
     }
 
-    private func note(_ s: String) -> some View {
-        Text(s).font(.system(size: 13)).foregroundStyle(.white.opacity(0.6))
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
     private func candidateList(_ c: [LRCLIBRecord]) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 6) {
-                if c.isEmpty { note("Loading results…") }
+                if c.isEmpty { Note(text: "Loading results…") }
                 ForEach(c, id: \.id) { r in
                     Button { model.choose(r) } label: {
                         HStack {
@@ -232,7 +305,20 @@ struct SettingsView: View {
             TextField("Ignored players (bundle IDs, comma-separated)", text: $model.blacklistText)
             if let id = model.state?.bundleID { Text("Current player: \(id)").font(.caption).textSelection(.enabled) }
             Button("Clear lyrics cache") { model.clearCache() }
-            Text("Lyrics come from lrclib.net. Only title, artist, album and duration are sent.")
+            Section("Location (weather, prayer times)") {
+                Toggle("Automatic location", isOn: Binding(get: { model.location.automatic },
+                                                            set: { model.location.setAutomatic($0) }))
+                Text("Now: \(model.location.place.name)").font(.caption)
+                if model.location.denied {
+                    Text("Location access is off. Allow it in System Settings › Privacy & Security › Location Services, or search a city.")
+                        .font(.caption).foregroundStyle(.orange)
+                }
+                TextField("Search city", text: Bindable(model.location).query)
+                ForEach(Array(model.location.results.enumerated()), id: \.offset) { _, p in
+                    Button(p.name) { model.location.choose(p) }
+                }
+            }
+            Text("Lyrics: lrclib.net (title, artist, album, duration). Weather: Open-Meteo (rounded coordinates). ISS: wheretheiss.at.")
                 .font(.caption).foregroundStyle(.secondary)
         }
         .formStyle(.grouped)
