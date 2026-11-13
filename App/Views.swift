@@ -22,7 +22,14 @@ struct PillView: View {
             .foregroundStyle(.white)
         }
         .contentShape(shape)
-        .onHover { model.expanded = $0 }
+        .onHover { inside in
+            if inside { model.expanded = true; return }
+            // Collapse only if the cursor really left (hover exits also fire while the window resizes).
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(250))
+                if !model.mouseInPanel() { model.expanded = false }
+            }
+        }
         .onTapGesture { model.expanded.toggle() }
     }
 

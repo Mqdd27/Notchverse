@@ -60,6 +60,8 @@ enum IdleItem: String, CaseIterable {
     var candidates: [LRCLIBRecord]? // non-nil = manual picker open
     var userOffset: TimeInterval = 0
     var notchInset: CGFloat = 0
+    /// Set by AppDelegate: whether the cursor is over the panel right now.
+    @ObservationIgnored var mouseInPanel: () -> Bool = { false }
     var attached = true // pinned to the top edge like a notch, vs floating below the menu bar
     var loginError: String?
     var page = Page(rawValue: UserDefaults.standard.string(forKey: "page") ?? "") ?? .music {

@@ -11,6 +11,7 @@ import SwiftUI
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         panel = NSPanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+        model.mouseInPanel = { [unowned self] in panel.isVisible && NSMouseInRect(NSEvent.mouseLocation, panel.frame, false) }
         panel.isFloatingPanel = true
         panel.level = .statusBar
         panel.backgroundColor = .clear
@@ -76,14 +77,9 @@ import SwiftUI
 
         let behavior: NSWindow.CollectionBehavior = [.canJoinAllSpaces, .stationary, .ignoresCycle]
         panel.collectionBehavior = model.hideInFullscreen ? behavior : behavior.union(.fullScreenAuxiliary)
-        if panel.isVisible {
-            NSAnimationContext.runAnimationGroup { ctx in
-                ctx.duration = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? 0 : 0.2
-                panel.animator().setFrame(frame, display: true)
-            }
-        } else {
-            panel.setFrame(frame, display: true)
-        }
+        // Resize instantly: an animated window frame runs behind the SwiftUI content (big empty box)
+        // and fires spurious hover exits mid-resize.
+        panel.setFrame(frame, display: true)
         panel.orderFrontRegardless()
     }
 
