@@ -5,8 +5,7 @@ Synced lyrics in a Dynamic Island–style pill at the top of your Mac screen, fo
 floats as a pill on those that don't.
 
 - Hover or click the pill to open it. Pages: **Music** (synced lyrics, controls), **Agents** (tuios coding agents,
-  click to focus a pane), **Weather + moon phase**, **Prayer times** (Kemenag RI method; shown only when
-  [Prayer Times](https://github.com/Mqdd27/prayer-times) is installed), **Timer**,
+  click to focus a pane), **Weather + moon phase**, **Timer**,
   **Containers** (Docker via Colima/Docker Desktop/OrbStack:
   start/stop; hidden when `docker` isn't installed).
 - Closed, the pill shows the most important thing: running timer › agent that needs you › playing music ›
@@ -53,7 +52,6 @@ Network requests, and what they contain:
 | `api.open-meteo.com` | coordinates rounded to 0.01° | every 15 min |
 | `geocoding-api.open-meteo.com` | the city name you type | city search in Settings |
 
-Prayer times and moon phase are computed locally. Location never leaves the Mac otherwise.
 No accounts, no analytics, no telemetry.
 
 ## Lyrics copyright
@@ -64,4 +62,3 @@ respective rights holders.
 ## License
 
 MIT. See [LICENSE](LICENSE). Prayer-time math is ported from
-[prayer-times](https://github.com/Mqdd27/prayer-times). Vendored mediaremote-adapter keeps its own BSD-3-Clause license.
