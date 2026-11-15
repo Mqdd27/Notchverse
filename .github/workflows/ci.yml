@@ -1,11 +1,29 @@
 name: CI
-on: [push, pull_request]
+on: [push, pull_request, workflow_dispatch] # Run workflow by hand = release now
+permissions:
+  contents: write
 jobs:
   macos:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
       - run: swift test
+      # Pushes to main that change code publish v0.1.<run number> with the DMG.
+      # Same job as the tests: a separate release job kept waiting for a macOS runner.
+      - name: Code changed?
+        id: code
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: git diff --quiet HEAD~1 -- App Sources Package.swift scripts Vendor || echo "changed=1" >> "$GITHUB_OUTPUT"
+      - name: Release
+        if: steps.code.outputs.changed == '1' || github.event_name == 'workflow_dispatch'
+        run: |
+          VERSION="0.1.${{ github.run_number }}"
+          VERSION=$VERSION scripts/build-app.sh --dmg
+          gh release create "v$VERSION" ".build/Notchverse-$VERSION.dmg" --target "$GITHUB_SHA" --title "Notchverse $VERSION" --generate-notes
+        env:
+          GH_TOKEN: ${{ github.token }}
   linux:
     runs-on: ubuntu-latest
     container: swift:6.0
